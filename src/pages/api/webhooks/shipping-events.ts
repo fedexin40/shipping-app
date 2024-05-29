@@ -87,7 +87,7 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
         return { data: [] };
       });
 
-    // console.log({ data });
+    console.log({ data });
 
     return res.status(200).json([
       ...data.map((method: any) => ({
