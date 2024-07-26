@@ -127,6 +127,8 @@ const FulfillOrder = gql`
   }
 `;
 
+
+
 export const orderConfirmedWebhook = new SaleorAsyncWebhook<OrderConfirmWebhookPayloadFragment>({
   name: "Order Confirmed",
   webhookPath: "api/webhooks/order-confirmed",
@@ -226,7 +228,6 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
       const rate = included
         .filter((inc: any) => inc.type === "rates")
         .find((rate: any) => {
-          console.log(rate);
           const saleor_id = `app:saleor.skydropx-shipping.app:${rate.attributes.service_level_code}`;
           return atob(delivered_id) === saleor_id;
         });
@@ -273,6 +274,7 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
       console.log({ err });
     }
 
+    console.log('Event handled')
     return res.status(200).json({ message: "event handled" });
   })(req, res);
 };
