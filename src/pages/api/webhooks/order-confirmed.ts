@@ -163,10 +163,10 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
     const shipping_address = order.shippingAddress;
     const warehouse_addess = order.channel.warehouses[0].address;
     if (!shipping_address || !shipping_address.postalCode)
-      return res.status(200).json({ message: "Missing shipping address" });
+      return res.status(500).json({ message: "Missing shipping address" });
 
     if (!warehouse_addess || !warehouse_addess.postalCode)
-      return res.status(200).json({ message: "Missing warehouse address" });
+      return res.status(500).json({ message: "Missing warehouse address" });
 
     const client = createClient(authData.saleorApiUrl, async () => ({
       token: authData.token,
@@ -186,8 +186,8 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
         ],
         address_to: {
           name: order.userEmail,
-          address1: shipping_address.streetAddress1,
-          address2: shipping_address.streetAddress2,
+          address1: shipping_address.streetAddress1  || "Sin direccion",
+          address2: shipping_address.streetAddress2  || "Sin direccion",
           city: shipping_address.city,
           province: shipping_address.countryArea || shipping_address.city,
           country: "MX",
@@ -200,8 +200,8 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
         },
         address_from: {
           name: "warehouse",
-          address1: warehouse_addess.streetAddress1,
-          address2: warehouse_addess.streetAddress2,
+          address1: warehouse_addess.streetAddress1 || "Sin direccion",
+          address2: warehouse_addess.streetAddress2 || "Sin direccion",
           city: warehouse_addess.city,
           province: warehouse_addess.countryArea,
           country: warehouse_addess.country.code,
@@ -217,10 +217,15 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
         return { data: undefined };
       });
 
-      if (!shipment) return res.status(200).json({ message: "shipment creation failed" });
+      if (!shipment) {
+        console.log('There is no shipment')
+        return res.status(500).json({ message: "Shipment creation failed" });
+      }
 
-      if (!Object.keys(order.deliveryMethod ?? {}).includes("id"))
-        return res.status(200).json({ message: "missing delivery method" });
+      if (!Object.keys(order.deliveryMethod ?? {}).includes("id")) {
+        console.log("Missing delivery method")
+        return res.status(500).json({ message: "Missing delivery method" });
+      }
 
       const included = shipment.included as any[];
       const delivered_id = order.deliveryMethod.id;
@@ -232,7 +237,10 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
           return atob(delivered_id) === saleor_id;
         });
 
-      if (!rate) return res.status(200).json({ message: "rate not found" });
+      if (!rate) {
+        console.log("Rate not found")
+        return res.status(500).json({ message: "rate not found" });
+      }
 
       const { data: label } = await api
         .post("/v1/labels", {
@@ -244,9 +252,17 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
           return { data: undefined };
         });
 
-      if (!label) return res.status(200).json({ message: "label creation failed" });
+      if (!label) {
+        console.log("Label creation failed")
+        return res.status(500).json({ message: "Label creation failed" });
+      }
 
       const tracking_number = label.data.attributes.tracking_number;
+
+      if (!tracking_number) {
+        console.log("There is no tracking number")
+        return res.status(500).json({ message: "There is no tracking number" });
+      }
 
       const lines = order.lines.map((line) => {
         return {
@@ -265,10 +281,8 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
 
       if (fulfillment.data?.orderFulfill?.errors && fulfillment.data.orderFulfill.errors.length > 0 ) {
         console.log(fulfillment.data?.orderFulfill?.errors);
-        return res.status(200).json({ message: fulfillment.data.orderFulfill.errors[0].message });
+        return res.status(500).json({ message: fulfillment.data.orderFulfill.errors[0].message });
       }
-
-      return res.status(200).json({ message: "tracking number saved" });
       
     } catch (err) {
       console.log({ err });
