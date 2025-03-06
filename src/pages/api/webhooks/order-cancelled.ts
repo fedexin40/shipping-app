@@ -1,8 +1,7 @@
 import { SaleorAsyncWebhook } from "@saleor/app-sdk/handlers/next";
-import { saleorApp } from "../../../saleor-app";
 import { gql } from "urql";
-import { api } from "../../../lib/axios";
 import { OrderCancelledWebhookPayloadFragment } from "../../../../generated/graphql";
+import { saleorApp } from "../../../saleor-app";
 
 const OrderCancelledWebhookPayload = gql`
   fragment OrderCancelledWebhookPayload on OrderCancelled {

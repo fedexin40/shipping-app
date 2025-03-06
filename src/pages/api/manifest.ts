@@ -2,10 +2,10 @@ import { createManifestHandler } from "@saleor/app-sdk/handlers/next";
 import { AppManifest } from "@saleor/app-sdk/types";
 
 import packageJson from "../../../package.json";
+import { orderCancelledWebhook } from "./webhooks/order-cancelled";
+import { orderConfirmedWebhook } from "./webhooks/order-confirmed";
 import { orderCreatedWebhook } from "./webhooks/order-created";
 import { shippingEventsWebhook } from "./webhooks/shipping-events";
-import { orderConfirmedWebhook } from "./webhooks/order-confirmed";
-import { orderCancelledWebhook } from "./webhooks/order-cancelled";
 
 /**
  * App SDK helps with the valid Saleor App Manifest creation. Read more:
@@ -22,7 +22,7 @@ export default createManifestHandler({
     const apiBaseURL = process.env.APP_API_BASE_URL ?? appBaseUrl;
 
     const manifest: AppManifest = {
-      name: "Skydropx shipping",
+      name: "Skydropx shipping testing18",
       tokenTargetUrl: `${apiBaseURL}/api/register`,
       appUrl: iframeBaseUrl,
       /**
@@ -40,7 +40,7 @@ export default createManifestHandler({
         "MANAGE_CHECKOUTS",
         "MANAGE_SHIPPING",
       ],
-      id: "saleor.skydropx-shipping.app",
+      id: "saleor.skydropx-shipping.app.testing18",
       version: packageJson.version,
       /**
        * Configure webhooks here. They will be created in Saleor during installation
@@ -61,7 +61,7 @@ export default createManifestHandler({
        * https://docs.saleor.io/docs/3.x/developer/extending/apps/extending-dashboard-with-apps
        */
       extensions: [],
-      author: "Saleor Commerce",
+      author: "fedexin40",
       brand: {
         logo: {
           default: `${apiBaseURL}/logo.png`,

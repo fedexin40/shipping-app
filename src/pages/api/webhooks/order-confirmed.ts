@@ -3,19 +3,25 @@ import { NextApiHandler } from "next";
 import { gql } from "urql";
 import {
   FulFillOrderDocument,
+  MetadataUpdateDocument,
   OrderConfirmWebhookPayloadFragment
 } from "../../../../generated/graphql";
-import { api } from "../../../lib/axios";
+import { axiosInstance } from "../../../lib/axios";
 import { createClient } from "../../../lib/create-graphq-client";
 import { saleorApp } from "../../../saleor-app";
-
 
 const OrderConfirmWebhookPayload = gql`
   fragment OrderConfirmWebhookPayload on OrderConfirmed {
     order {
+      fulfillments {
+        trackingNumber
+      }
+      quotation_id: metafields(keys: "quotation_id")
       userEmail
       id
       shippingAddress {
+        firstName
+        lastName
         postalCode
         streetAddress1
         streetAddress2
@@ -56,6 +62,7 @@ const OrderConfirmWebhookPayload = gql`
       channel {
         warehouses {
           id
+          companyName
           address {
             postalCode
             streetAddress1
@@ -156,118 +163,97 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
      */
 
     const order = payload.order;
+    const fulfillments = order?.fulfillments
+    console.log(fulfillments)
+    if (!fulfillments || fulfillments?.length != 0) {
+      return res.status(200).json("Shipment already created");
+    }
 
     if (!order || !order.deliveryMethod)
       return res.status(200).json({ message: "missing delivery method" });
 
     const shipping_address = order.shippingAddress;
-    const warehouse_addess = order.channel.warehouses[0].address;
+    const warehouse_address = order.channel.warehouses[0].address;
     if (!shipping_address || !shipping_address.postalCode)
       return res.status(500).json({ message: "Missing shipping address" });
 
-    if (!warehouse_addess || !warehouse_addess.postalCode)
+    if (!warehouse_address || !warehouse_address.postalCode)
       return res.status(500).json({ message: "Missing warehouse address" });
 
     const client = createClient(authData.saleorApiUrl, async () => ({
       token: authData.token,
     }));
 
+    const rate_id = atob(order.deliveryMethod.id).split(":").slice(-1)[0]
     try {
       const body = {
-        parcels: [
-          {
-            weight: 1,
-            height: 10,
-            width: 10,
-            length: 10,
-            distance_unit: "CM",
-            mass_unit: "KG",
+        shipment: {
+          quotation_id: order.quotation_id.quotation_id,
+          rate_id: rate_id,
+          address_to: {
+            country_code: "mx",
+            postal_code: shipping_address.postalCode,
+            area_level1: shipping_address.countryArea || '',
+            area_level2: shipping_address.city || '',
+            area_level3: shipping_address.streetAddress1 || '',
+            street1: shipping_address.streetAddress2 || '',
+            reference: "Sin refencia",
+            name: `${shipping_address.firstName} ${shipping_address.lastName}`,
+            company: `${shipping_address.firstName} ${shipping_address.lastName}`,
+            phone: shipping_address.phone || '',
+            email: payload.order?.userEmail || ''
           },
-        ],
-        address_to: {
-          name: order.userEmail,
-          address1: shipping_address.streetAddress1  || "Sin direccion",
-          address2: shipping_address.streetAddress2  || "Sin direccion",
-          city: shipping_address.city,
-          province: shipping_address.countryArea || shipping_address.city,
-          country: "MX",
-          zip: shipping_address.postalCode,
-          reference: "Frente a tienda de abarro",
-          phone: shipping_address.phone,
-          contents: order.lines
-            .map((line) => `${line.quantity} x ${line.productName} - ${line.variantName}`)
-            .join("\n"),
-        },
-        address_from: {
-          name: "warehouse",
-          address1: warehouse_addess.streetAddress1 || "Sin direccion",
-          address2: warehouse_addess.streetAddress2 || "Sin direccion",
-          city: warehouse_addess.city,
-          province: warehouse_addess.countryArea,
-          country: warehouse_addess.country.code,
-          zip: warehouse_addess.postalCode,
-          phone: warehouse_addess.phone
-        },
-        consignment_note_class_code: "14111500",
-        consignment_note_packaging_code: "1H1",
+          address_from: {
+            country_code: "mx",
+            postal_code: warehouse_address.postalCode,
+            area_level1: warehouse_address.countryArea || '',
+            area_level2: warehouse_address.city || '',
+            area_level3: warehouse_address.streetAddress1 || '',
+            street1: warehouse_address.streetAddress2 || '',
+            reference: "Sin refencia",
+            name: "Proyecto",
+            company: payload.order?.channel.warehouses[0].companyName || '',
+            phone: warehouse_address.phone,
+            email: "contacto@proyecto705.com"
+          },
+          consignment_note: "53102400",
+          package_type: "1KG"
+        }
       };
+      const { data } = await axiosInstance.post("/api/v1/shipments", body)
 
-      const { data: shipment } = await api.post("/v1/shipments", body).catch((err) => {
-        console.log(err.response.data);
-        return { data: undefined };
-      });
-
-      if (!shipment) {
+      if (!data) {
         console.log('There is no shipment')
         return res.status(500).json({ message: "Shipment creation failed" });
       }
 
-      if (!Object.keys(order.deliveryMethod ?? {}).includes("id")) {
-        console.log("Missing delivery method")
-        return res.status(500).json({ message: "Missing delivery method" });
+      let label
+      let tracking_number
+      let tracking_url_provider
+      while (!tracking_number) {
+        const url = `/api/v1/shipments/${data.data.attributes.id}`
+        label = await axiosInstance.get(url)
+        tracking_number = label.data.included[0].attributes.tracking_number;
+        tracking_url_provider = label.data.included[0].attributes.tracking_url_provider;
       }
 
-      const included = shipment.included as any[];
-      const delivered_id = order.deliveryMethod.id;
+      const { error } = await client.mutation(MetadataUpdateDocument, {
+        id: order.id,
+        input: [{
+          key: 'tracking_url_provider',
+          value: tracking_url_provider
+        }],
+      });
 
-      const rate = included
-        .filter((inc: any) => inc.type === "rates")
-        .find((rate: any) => {
-          const saleor_id = `app:saleor.skydropx-shipping.app:${rate.attributes.service_level_code}`;
-          return atob(delivered_id) === saleor_id;
-        });
-
-      if (!rate) {
-        console.log("Rate not found")
-        return res.status(500).json({ message: "rate not found" });
-      }
-
-      const { data: label } = await api
-        .post("/v1/labels", {
-          rate_id: +rate.id,
-          label_format: "pdf",
-        })
-        .catch((err) => {
-          console.log(err.response.data);
-          return { data: undefined };
-        });
-
-      if (!label) {
-        console.log("Label creation failed")
-        return res.status(500).json({ message: "Label creation failed" });
-      }
-
-      const tracking_number = label.data.attributes.tracking_number;
-
-      if (!tracking_number) {
-        console.log("There is no tracking number")
-        return res.status(500).json({ message: "There is no tracking number" });
+      if (error) {
+        console.log(error);
+        return res.status(500).json(error);
       }
 
       const lines = order.lines.map((line) => {
         return {
-          stocks: [{quantity: line.quantity, warehouse: order.channel.warehouses[0].id}],
-          orderLineId: line.id 
+          stocks: [{ quantity: line.quantity, warehouse: order.channel.warehouses[0].id }],
+          orderLineId: line.id
         }
       })
       const fulfillment = await client.mutation(FulFillOrderDocument, {
@@ -279,13 +265,14 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
         },
       });
 
-      if (fulfillment.data?.orderFulfill?.errors && fulfillment.data.orderFulfill.errors.length > 0 ) {
+      if (fulfillment.data?.orderFulfill?.errors && fulfillment.data.orderFulfill.errors.length > 0) {
         console.log(fulfillment.data?.orderFulfill?.errors);
-        return res.status(500).json({ message: fulfillment.data.orderFulfill.errors[0].message });
+        return res.status(200).json({ message: fulfillment.data.orderFulfill.errors[0].message });
       }
-      
+
     } catch (err) {
       console.log({ err });
+      return res.status(500).json({ message: "event handled" });
     }
 
     console.log('Event handled')
