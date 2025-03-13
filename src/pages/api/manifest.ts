@@ -22,7 +22,7 @@ export default createManifestHandler({
     const apiBaseURL = process.env.APP_API_BASE_URL ?? appBaseUrl;
 
     const manifest: AppManifest = {
-      name: "Skydropx shipping testing",
+      name: "Skydropx shipping",
       tokenTargetUrl: `${apiBaseURL}/api/register`,
       appUrl: iframeBaseUrl,
       /**
@@ -40,7 +40,7 @@ export default createManifestHandler({
         "MANAGE_CHECKOUTS",
         "MANAGE_SHIPPING",
       ],
-      id: "saleor.skydropx-shipping.app.testing",
+      id: "saleor.skydropx-shipping.app",
       version: packageJson.version,
       /**
        * Configure webhooks here. They will be created in Saleor during installation
