@@ -1,8 +1,8 @@
 import { SaleorSyncWebhook } from "@saleor/app-sdk/handlers/next";
 import { gql } from "urql";
 import { MetadataUpdateDocument } from "../../../../generated/graphql";
-import { axiosInstance } from "../../../lib/axios";
 import { createClient } from "../../../lib/create-graphq-client";
+import { createQuotation, getQuotation } from "../../../lib/skydropx";
 import { saleorApp } from "../../../saleor-app";
 
 
@@ -101,16 +101,11 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
     original_area_level3 == shipping_address.streetAddress1
   ) {
     try {
-      let answer
-      let is_completed = false
-      const url = `/api/v1/quotations/${quotation_id}`
-      answer = await axiosInstance.get(url)
-      while (!is_completed) {
-
-        answer = await axiosInstance.get(url)
-        is_completed = answer.data.is_completed
+      const answer = await getQuotation(quotation_id)
+      const data = answer?.data
+      if (!answer?.status || answer?.status >= 400) {
+        throw new Error(data.error)
       }
-      const { data } = answer
       const shipping = data.rates.filter((rate: any) => rate.success)
       return res.status(200).json([
         ...shipping.map((method: any) => ({
@@ -166,20 +161,13 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
         requested_carriers: []
       }
     }
-    let answer = await axiosInstance.post(
-      '/api/v1/quotations', body
-    )
-    // Skydropx flow is: first create the quotation
-    // later with the quoation_id query again and see for 
-    // is_completed equal to true
-    const quotation_id = answer.data.id
-    let is_completed = false
-    while (!is_completed) {
-      const url = `/api/v1/quotations/${quotation_id}`
-      answer = await axiosInstance.get(url)
-      is_completed = answer.data.is_completed
+
+    const answer = await createQuotation(body)
+    const data = answer.data
+    if (answer.status >= 400) {
+      throw new Error(data.error)
     }
-    const { data } = answer
+
     const shipping = data.rates.filter((rate: any) => rate.success)
     const client = createClient(authData.saleorApiUrl, async () => ({
       token: authData.token,

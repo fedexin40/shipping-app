@@ -6,8 +6,8 @@ import {
   MetadataUpdateDocument,
   OrderConfirmWebhookPayloadFragment
 } from "../../../../generated/graphql";
-import { axiosInstance } from "../../../lib/axios";
 import { createClient } from "../../../lib/create-graphq-client";
+import { createQuotation, createShipping } from "../../../lib/skydropx";
 import { saleorApp } from "../../../saleor-app";
 
 const OrderConfirmWebhookPayload = gql`
@@ -17,20 +17,20 @@ const OrderConfirmWebhookPayload = gql`
         trackingNumber
       }
       quotation_id: metafields(keys: "quotation_id")
+      postal_code: metafields(keys: "postal_code")
+      area_level1: metafields(keys: "area_level1")
+      area_level2: metafields(keys: "area_level2")
+      area_level3: metafields(keys: "area_level3")
+      shipping_cost : metafields(keys: "shipping_cost")
+      carrier_name : metafields(keys: "carrier_name")
       userEmail
       id
       shippingAddress {
         firstName
         lastName
-        postalCode
-        streetAddress1
-        streetAddress2
-        phone
-        city
-        country {
-          code
-        }
         countryArea
+        streetAddress1
+        phone
       }
       deliveryMethod {
         ... on ShippingMethod {
@@ -174,8 +174,6 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
 
     const shipping_address = order.shippingAddress;
     const warehouse_address = order.channel.warehouses[0].address;
-    if (!shipping_address || !shipping_address.postalCode)
-      return res.status(500).json({ message: "Missing shipping address" });
 
     if (!warehouse_address || !warehouse_address.postalCode)
       return res.status(500).json({ message: "Missing warehouse address" });
@@ -184,58 +182,113 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
       token: authData.token,
     }));
 
+    const address_to = {
+      country_code: "mx",
+      postal_code: order.postal_code.postal_code,
+      area_level1: order.area_level1.area_level1,
+      area_level2: order.area_level2.area_level2,
+      area_level3: order.area_level3.area_level3,
+      street1: shipping_address?.streetAddress1 || '',
+      reference: "Sin refencia",
+      name: `${shipping_address?.firstName} ${shipping_address?.lastName}`,
+      company: `${shipping_address?.firstName} ${shipping_address?.lastName}`,
+      phone: shipping_address?.phone || '',
+      email: payload.order?.userEmail || ''
+    }
+    const address_from = {
+      country_code: "mx",
+      postal_code: warehouse_address.postalCode,
+      area_level1: warehouse_address.countryArea || '',
+      area_level2: warehouse_address.city || '',
+      area_level3: warehouse_address.streetAddress1 || '',
+      street1: warehouse_address.streetAddress2 || '',
+      reference: "Sin refencia",
+      name: "Proyecto",
+      company: payload.order?.channel.warehouses[0].companyName || '',
+      phone: warehouse_address.phone,
+      email: "contacto@proyecto705.com"
+    }
+
     const rate_id = atob(order.deliveryMethod.id).split(":").slice(-1)[0]
     try {
       const body = {
         shipment: {
-          quotation_id: order.quotation_id.quotation_id,
+          quotation_id: order.quotation_id.quoation_id,
           rate_id: rate_id,
-          address_to: {
-            country_code: "mx",
-            postal_code: shipping_address.postalCode,
-            area_level1: shipping_address.countryArea || '',
-            area_level2: shipping_address.city || '',
-            area_level3: shipping_address.streetAddress1 || '',
-            street1: shipping_address.streetAddress2 || '',
-            reference: "Sin refencia",
-            name: `${shipping_address.firstName} ${shipping_address.lastName}`,
-            company: `${shipping_address.firstName} ${shipping_address.lastName}`,
-            phone: shipping_address.phone || '',
-            email: payload.order?.userEmail || ''
-          },
-          address_from: {
-            country_code: "mx",
-            postal_code: warehouse_address.postalCode,
-            area_level1: warehouse_address.countryArea || '',
-            area_level2: warehouse_address.city || '',
-            area_level3: warehouse_address.streetAddress1 || '',
-            street1: warehouse_address.streetAddress2 || '',
-            reference: "Sin refencia",
-            name: "Proyecto",
-            company: payload.order?.channel.warehouses[0].companyName || '',
-            phone: warehouse_address.phone,
-            email: "contacto@proyecto705.com"
-          },
+          address_to: address_to,
+          address_from: address_from,
           consignment_note: "53102400",
           package_type: "1KG"
         }
-      };
-      const { data } = await axiosInstance.post("/api/v1/shipments", body)
+      }
+      let answer
+      let data
+      let answerShipping: any
+      answer = await createShipping(body).catch(async function (error) {
+        // Below part is because Skydropx quotations
+        // only lives for 24 hours, but there are payments like Oxxo
+        // that can be take more than that, so if the quotation is not longer available
+        // then create again a quotation and take the one from the same carrier and
+        // closer price
+        if (error.response && error.response?.status == 422) {
+          const body = {
+            quotation: {
+              address_from: address_from,
+              address_to: address_to,
+              parcel: {
+                length: 10,
+                width: 10,
+                height: 10,
+                weight: 1
+              },
+              requested_carriers: []
+            }
+          }
+          const answer = await createQuotation(body)
+          if (answer.status >= 400) {
+            throw new Error(answer.data.error)
+          }
+          const quotation_id = answer.data.id
+          const carrier_name = order.carrier_name.carrier_name
+          const shipping_cost = order.shipping_cost.shipping_cost
+          let difference = 99999
+          let rate_id
+          let shipping = answer.data.rates.filter((rate: any) => rate.success && rate.provider_name == carrier_name)
+          for (let i = 0; i < shipping.length; i++) {
+            const diff = Math.abs(Math.floor(shipping_cost) - shipping[i].total)
+            if (diff < difference) {
+              rate_id = shipping[i].id
+              difference = diff
+            }
+          }
+          const bodyShipment = {
+            shipment: {
+              quotation_id: quotation_id,
+              rate_id: rate_id,
+              address_to: address_to,
+              address_from: address_from,
+              consignment_note: "53102400",
+              package_type: "1KG"
+            }
+          }
+          answerShipping = await createShipping(bodyShipment)
+          if (answerShipping && answerShipping?.status >= 400) {
+            throw new Error(answerShipping.data.error)
+          }
+        }
+        else {
+          throw new Error(error.message)
+        }
+      })
+      data = answer?.data || answerShipping?.data
 
       if (!data) {
         console.log('There is no shipment')
         return res.status(500).json({ message: "Shipment creation failed" });
       }
 
-      let label
-      let tracking_number
-      let tracking_url_provider
-      while (!tracking_number) {
-        const url = `/api/v1/shipments/${data.data.attributes.id}`
-        label = await axiosInstance.get(url)
-        tracking_number = label.data.included[0].attributes.tracking_number;
-        tracking_url_provider = label.data.included[0].attributes.tracking_url_provider;
-      }
+      const tracking_number = data.included[0].attributes.tracking_number;
+      const tracking_url_provider = data.included[0].attributes.tracking_url_provider;
 
       const { error } = await client.mutation(MetadataUpdateDocument, {
         id: order.id,
