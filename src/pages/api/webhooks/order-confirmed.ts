@@ -224,6 +224,7 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
       let answer
       let data
       let answerShipping: any
+      console.log('Try to create the shipment ')
       answer = await createShipping(body).catch(async function (error) {
         // Below part is because Skydropx quotations
         // only lives for 24 hours, but there are payments like Oxxo
@@ -231,6 +232,7 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
         // then create again a quotation and take the one from the same carrier and
         // closer price
         if (error.response && error.response?.status == 422) {
+          console.log('The shipment creation failed because the quotation is not longer available')
           const body = {
             quotation: {
               address_from: address_from,
@@ -244,6 +246,7 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
               requested_carriers: []
             }
           }
+          console.log('Create another quotation')
           const answer = await createQuotation(body)
           if (answer.status >= 400) {
             throw new Error(answer.data.error)
@@ -271,6 +274,7 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
               package_type: "1KG"
             }
           }
+          console.log('Try to create again the shipment')
           answerShipping = await createShipping(bodyShipment)
           if (answerShipping && answerShipping?.status >= 400) {
             throw new Error(answerShipping.data.error)
@@ -280,6 +284,7 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
           throw new Error(error.message)
         }
       })
+      console.log('Shipment created')
       data = answer?.data || answerShipping?.data
 
       if (!data) {
