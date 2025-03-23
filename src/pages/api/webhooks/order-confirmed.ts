@@ -243,7 +243,7 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
                 height: 10,
                 weight: 1
               },
-              requested_carriers: []
+              requested_carriers: ["fedex", "estafeta", "dhl"]
             }
           }
           console.log('Create another quotation')

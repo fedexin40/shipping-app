@@ -158,7 +158,7 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
           height: 10,
           weight: 1
         },
-        requested_carriers: []
+        requested_carriers: ["fedex", "estafeta", "dhl"]
       }
     }
 
