@@ -45,6 +45,8 @@ export const getQuotation = async (id: string) => {
   let is_completed = false
   let answer
   while (!is_completed) {
+    // Stop the execution for a second to avoid multiple calls
+    await new Promise(resolve => setTimeout(resolve, 1000));
     answer = await axiosInstance.get(url)
     is_completed = answer.data.is_completed
   }
