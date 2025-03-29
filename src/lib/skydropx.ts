@@ -46,7 +46,7 @@ export const getQuotation = async (id: string) => {
   let answer
   while (!is_completed) {
     // Stop the execution for a second to avoid multiple calls
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
     answer = await axiosInstance.get(url)
     is_completed = answer.data.is_completed
   }
@@ -64,7 +64,7 @@ export const createQuotation = async (body: bodyQuotation) => {
   let is_completed = false
   while (!is_completed) {
     // Stop the execution for a second to avoid multiple calls
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
     const url = `/api/v1/quotations/${quotation_id}`
     answer = await axiosInstance.get(url)
     is_completed = answer.data.is_completed
@@ -81,7 +81,7 @@ export const createShipping = async (body: bodyShipping) => {
   let answer_get_shipping
   while (!tracking_number) {
     // Stop the execution for a second to avoid multiple calls
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
     const url = `/api/v1/shipments/${answer.data.data.attributes.id}`
     answer_get_shipping = await axiosInstance.get(url)
     tracking_number = answer_get_shipping.data.included[0].attributes.tracking_number;
