@@ -137,7 +137,7 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
           name: "Proyecto",
           company: warehouse_address.companyName,
           phone: warehouse_address.phone,
-          email: "contacto@proyecto705.com"
+          email: "contacto@proyecto705.com.mx"
         },
         address_to: {
           country_code: "mx",

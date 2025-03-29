@@ -206,7 +206,7 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
       name: "Proyecto",
       company: payload.order?.channel.warehouses[0].companyName || '',
       phone: warehouse_address.phone,
-      email: "contacto@proyecto705.com"
+      email: "contacto@proyecto705.com.mx"
     }
 
     const rate_id = atob(order.deliveryMethod.id).split(":").slice(-1)[0]
