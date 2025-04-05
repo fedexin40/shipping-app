@@ -136,7 +136,7 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
           reference: "Sin refencia",
           name: "Proyecto",
           company: warehouse_address.companyName,
-          phone: warehouse_address.phone,
+          phone: warehouse_address.phone.replace("+52", ""),
           email: "contacto@proyecto705.com.mx"
         },
         address_to: {
@@ -149,7 +149,7 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
           reference: "Sin refencia",
           name: `${shipping_address.firstName} ${shipping_address.lastName}`,
           company: `${shipping_address.firstName} ${shipping_address.lastName}`,
-          phone: shipping_address.phone || '',
+          phone: shipping_address.phone.replace("+52", "") || '',
           email: payload.checkout.email || ''
         },
         parcel: {
