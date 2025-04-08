@@ -192,7 +192,7 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
       reference: "Sin refencia",
       name: `${shipping_address?.firstName} ${shipping_address?.lastName}`,
       company: `${shipping_address?.firstName} ${shipping_address?.lastName}`,
-      phone: shipping_address?.phone || '',
+      phone: shipping_address?.phone?.replace("+52", "") || '',
       email: payload.order?.userEmail || ''
     }
     const address_from = {
@@ -205,7 +205,7 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
       reference: "Sin refencia",
       name: "Proyecto",
       company: payload.order?.channel.warehouses[0].companyName || '',
-      phone: warehouse_address.phone,
+      phone: warehouse_address.phone?.replace("+52", ""),
       email: "contacto@proyecto705.com.mx"
     }
 
@@ -330,7 +330,7 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
 
     } catch (err) {
       console.log({ err });
-      return res.status(500).json({ message: "event handled" });
+      return res.status(500).json({ message: err });
     }
 
     console.log('Event handled')
