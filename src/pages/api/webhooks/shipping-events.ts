@@ -132,9 +132,7 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
           area_level1: warehouse_address.countryArea || '',
           area_level2: warehouse_address.city || '',
           area_level3: warehouse_address.streetAddress1 || '',
-          street1: warehouse_address.streetAddress2 || '',
           reference: "Sin refencia",
-          name: "Proyecto",
           company: warehouse_address.companyName,
           phone: warehouse_address.phone.replace("+52", ""),
           email: "contacto@proyecto705.com.mx"
@@ -147,8 +145,7 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
           area_level3: shipping_address.streetAddress2 || '',
           street1: shipping_address.streetAddress1 || '',
           reference: "Sin refencia",
-          name: `${shipping_address.firstName} ${shipping_address.lastName}`,
-          company: `${shipping_address.firstName} ${shipping_address.lastName}`,
+          name: `${shipping_address.firstName} ${shipping_address.lastName}`.substring(0, 29),
           phone: shipping_address.phone.replace("+52", "") || '',
           email: payload.checkout.email || ''
         },
