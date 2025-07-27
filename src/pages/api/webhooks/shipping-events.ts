@@ -132,8 +132,10 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
           area_level1: warehouse_address.countryArea || '',
           area_level2: warehouse_address.city || '',
           area_level3: warehouse_address.streetAddress1 || '',
+          street1: "S/N",
           reference: "Sin refencia",
-          company: warehouse_address.companyName,
+          company: warehouse_address.companyName.substring(0, 29),
+          name: warehouse_address.companyName.substring(0, 29),
           phone: warehouse_address.phone.replace("+52", ""),
           email: "contacto@proyecto705.com.mx"
         },

@@ -200,8 +200,10 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
       area_level1: warehouse_address.countryArea || '',
       area_level2: warehouse_address.city || '',
       area_level3: warehouse_address.streetAddress1 || '',
+      street1: "S/N",
       reference: "Sin refencia",
-      company: payload.order?.channel.warehouses[0].companyName || '',
+      company: payload.order?.channel.warehouses[0].companyName.substring(0, 29) || '',
+      name: payload.order?.channel.warehouses[0].companyName.substring(0, 29) || '',
       phone: warehouse_address.phone?.replace("+52", ""),
       email: "contacto@proyecto705.com.mx"
     }
@@ -215,7 +217,7 @@ const orderConfirmedHandler: NextApiHandler = async (req, res) => {
           address_to: address_to,
           address_from: address_from,
           consignment_note: "53102400",
-          package_type: "1KG"
+          package_type: "4G"
         }
       }
       let answer
