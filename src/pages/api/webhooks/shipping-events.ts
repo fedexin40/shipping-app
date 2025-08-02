@@ -197,7 +197,6 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
       return res.status(500).json(error);
     }
 
-    console.log(shipping)
     return res.status(200).json([
       ...shipping.map((method: any) => ({
         id: method.id,
