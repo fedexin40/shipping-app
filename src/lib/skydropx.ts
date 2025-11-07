@@ -91,7 +91,6 @@ export const createShipping = async (body: bodyShipping) => {
 
 export const trackingShipment = async (body: { tracking_number: string, carrier_name: string }) => {
   const url = `/api/v1/shipments/tracking?tracking_number=${body.tracking_number}&carrier_name=${body.carrier_name}`
-  console.log(url)
   try {
     const answer = await axiosInstance.get(url)
     return answer

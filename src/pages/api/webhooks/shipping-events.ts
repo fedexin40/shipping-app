@@ -92,7 +92,6 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
     console.log("no channel warehouse");
     return res.status(200).json("no channel warehouse");
   }
-
   if (
     quotation_id &&
     original_postalCode == shipping_address.postalCode &&
@@ -157,7 +156,7 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
           height: 10,
           weight: 1
         },
-        requested_carriers: ["fedex", "estafeta", "dhl"]
+      requested_carriers: []
       }
     }
 
