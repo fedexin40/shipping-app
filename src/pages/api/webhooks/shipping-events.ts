@@ -144,7 +144,7 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
           area_level1: shipping_address.countryArea || '',
           area_level2: shipping_address.city || '',
           area_level3: shipping_address.streetAddress2 || '',
-          street1: shipping_address.streetAddress1 || '',
+          street1: shipping_address.streetAddress1.substring(0, 44) || '',
           reference: "Sin refencia",
           name: `${shipping_address.firstName} ${shipping_address.lastName}`.substring(0, 29),
           phone: shipping_address.phone.replace("+52", "") || '',
