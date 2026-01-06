@@ -112,8 +112,8 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
           provider: method.provider_name,
           name: method.provider_service_name + '.' + method.provider_name,
           amount: method.total ?? 0,
-          currency: payload.checkout.channel.currencyCode ?? "USD",
-          maximum_delivery_days: method.days ?? '1',
+          currency: payload.checkout.channel.currencyCode ?? "MXN",
+          maximum_delivery_days: method.days ?? '5',
         }))
       ]);
     } catch (error) {
@@ -160,6 +160,7 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
       }
     }
 
+    console.log(body)
     const answer = await createQuotation(body)
     const data = answer.data
     if (answer.status >= 400) {
