@@ -9,8 +9,8 @@ export interface address {
   street1?: string,
   reference?: string,
   company?: string,
-  phone: string | undefined | null,
-  email: string,
+  phone?: string | undefined | null,
+  email?: string,
   firstName?: string,
   lastName?: string
 }
