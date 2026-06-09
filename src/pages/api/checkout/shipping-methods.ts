@@ -69,7 +69,10 @@ export default async function handler(
       .filter((rate: any) => rate.success)
       .sort((a: any, b: any) => Number(a.total) - Number(b.total));
 
-    return res.status(200).json(shipping);
+    return res.status(200).json({
+      quotation_id: data.id,
+      shipping_methods: shipping
+    });
   } catch (error) {
     console.error("Shipping methods API error:", error);
 
