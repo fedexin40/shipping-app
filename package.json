@@ -7,12 +7,12 @@
     "build": "pnpm generate && next build",
     "start": "next start --port=4030",
     "lint": "next lint",
-    "fetch-schema": "curl https://raw.githubusercontent.com/saleor/saleor/${npm_package_saleor_schemaVersion}/saleor/graphql/schema.graphql > graphql/schema.graphql",
+    "fetch-schema": "curl https://raw.githubusercontent.com/saleor/saleor/3.23.15/saleor/graphql/schema.graphql > graphql/schema.graphql",
     "generate": "graphql-codegen",
     "test": "vitest"
   },
   "saleor": {
-    "schemaVersion": "3.10"
+    "schemaVersion": "3.23.15"
   },
   "engines": {
     "npm": ">=10.0.0 <11.0.0",

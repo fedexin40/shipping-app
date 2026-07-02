@@ -6,6 +6,7 @@ import { orderCancelledWebhook } from "./webhooks/order-cancelled";
 import { orderConfirmedWebhook } from "./webhooks/order-confirmed";
 import { orderCreatedWebhook } from "./webhooks/order-created";
 import { shippingEventsWebhook } from "./webhooks/shipping-events";
+import { checkoutUpdatedWebhook } from "./webhooks/checkout-updated";
 
 /**
  * App SDK helps with the valid Saleor App Manifest creation. Read more:
@@ -55,6 +56,7 @@ export default createManifestHandler({
         shippingEventsWebhook.getWebhookManifest(apiBaseURL),
         orderConfirmedWebhook.getWebhookManifest(apiBaseURL),
         orderCancelledWebhook.getWebhookManifest(apiBaseURL),
+        checkoutUpdatedWebhook.getWebhookManifest(apiBaseURL),
       ],
       /**
        * Optionally, extend Dashboard with custom UIs

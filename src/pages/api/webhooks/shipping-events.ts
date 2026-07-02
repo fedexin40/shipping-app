@@ -4,6 +4,7 @@ import { MetadataUpdateDocument } from "../../../../generated/graphql";
 import { createClient } from "../../../lib/create-graphq-client";
 import { createQuotation, getQuotation } from "../../../lib/skydropx";
 import { saleorApp } from "../../../saleor-app";
+import { CheckoutSubtotalDocument } from "../../../../generated/graphql";
 
 
 const ShippingMethodSubscription = gql`
@@ -65,6 +66,26 @@ const UpdateMetaData = gql`
   }
 `;
 
+const CheckoutSubtotalQuery = gql`
+  query CheckoutSubtotal($id: ID!) {
+    checkout(id: $id) {
+      id
+      subtotalPrice {
+        gross {
+          amount
+          currency
+        }
+        net {
+          amount
+          currency
+        }
+      }
+    }
+  }
+`;
+
+const free_shipping_amount = Number(process.env.free_shipping_amount ?? 1500);
+
 export const shippingEventsWebhook = new SaleorSyncWebhook<any>({
   name: "Shipping Methods",
   webhookPath: "/api/webhooks/shipping-events",
@@ -83,6 +104,16 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
   const original_area_level1 = payload.checkout.area_level1.area_level1
   const original_area_level2 = payload.checkout.area_level2.area_level2
   const original_area_level3 = payload.checkout.area_level3.area_level3
+
+  const client = createClient(authData.saleorApiUrl, async () => ({
+    token: authData.token,
+  }));
+
+  const checkoutTotal = Number(
+    (await client.query(CheckoutSubtotalDocument, {
+      id: payload.checkout.id,
+    })).data?.checkout?.subtotalPrice.gross.amount ?? 0
+  );
 
   if (!shipping_address || !shipping_address.postalCode) {
     return res.status(200).json([]);
@@ -105,7 +136,25 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
       if (!answer?.status || answer?.status >= 400) {
         throw new Error(data.error)
       }
-      const shipping = data.rates.filter((rate: any) => rate.success)
+      const shipping = data.rates
+        .filter((rate: any) => rate.success)
+        .sort((a: any, b: any) => Number(a.total) - Number(b.total));
+
+      if (checkoutTotal >= free_shipping_amount){
+        const freeShipping = shipping.slice(0, 1);
+
+        return res.status(200).json([
+          ...freeShipping.map((method: any) => ({
+            id: method.id,
+            provider: method.provider_display_name,
+            name: method.provider_display_name + " " + method.provider_service_name,
+            amount: 0,
+            currency: payload.checkout.channel.currencyCode ?? "USD",
+            maximum_delivery_days: method.days ?? '1',
+          })),
+        ]);
+      }
+
       return res.status(200).json([
         ...shipping.map((method: any) => ({
           id: method.id,
@@ -131,12 +180,6 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
           area_level1: warehouse_address.countryArea || '',
           area_level2: warehouse_address.city || '',
           area_level3: warehouse_address.streetAddress1 || '',
-          street1: "S/N",
-          reference: "Sin refencia",
-          company: warehouse_address.companyName.substring(0, 29),
-          name: warehouse_address.companyName.substring(0, 29),
-          phone: warehouse_address.phone.replace("+52", ""),
-          email: "contacto@proyecto705.com.mx"
         },
         address_to: {
           country_code: "mx",
@@ -144,11 +187,6 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
           area_level1: shipping_address.countryArea || '',
           area_level2: shipping_address.city || '',
           area_level3: shipping_address.streetAddress2 || '',
-          street1: shipping_address.streetAddress1.substring(0, 44) || '',
-          reference: "Sin refencia",
-          name: `${shipping_address.firstName} ${shipping_address.lastName}`.substring(0, 29),
-          phone: shipping_address.phone.replace("+52", "") || '',
-          email: payload.checkout.email || ''
         },
         parcel: {
           length: 10,
@@ -160,17 +198,54 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
       }
     }
 
-    console.log(body)
     const answer = await createQuotation(body)
     const data = answer.data
     if (answer.status >= 400) {
       throw new Error(data.error)
     }
 
-    const shipping = data.rates.filter((rate: any) => rate.success)
-    const client = createClient(authData.saleorApiUrl, async () => ({
-      token: authData.token,
-    }));
+    const shipping = data.rates
+      .filter((rate: any) => rate.success)
+      .sort((a: any, b: any) => Number(a.total) - Number(b.total));
+
+    if (checkoutTotal >= free_shipping_amount){
+      const freeShipping = shipping.slice(0, 1);
+      const { error } = await client.mutation(MetadataUpdateDocument, {
+        id: payload.checkout.id,
+        input: [{
+          key: 'quotation_id',
+          value: data.id
+        }, {
+          key: 'postal_code',
+          value: shipping_address.postalCode
+        }, {
+          key: 'area_level1',
+          value: shipping_address.countryArea
+        }, {
+          key: 'area_level2',
+          value: shipping_address.city
+        }, {
+          key: 'area_level3',
+          value: shipping_address.streetAddress1
+        }],
+      });
+
+      if (error) {
+        console.log(error);
+        return res.status(500).json(error);
+      }
+
+      return res.status(200).json([
+        ...freeShipping.map((method: any) => ({
+          id: method.id,
+          provider: method.provider_display_name,
+          name: method.provider_display_name + " " + method.provider_service_name,
+          amount: 0,
+          currency: payload.checkout.channel.currencyCode ?? "USD",
+          maximum_delivery_days: method.days ?? '1',
+        })),
+      ]);
+    }
 
     const { error } = await client.mutation(MetadataUpdateDocument, {
       id: payload.checkout.id,
@@ -200,8 +275,8 @@ export default shippingEventsWebhook.createHandler(async (req, res, ctx) => {
     return res.status(200).json([
       ...shipping.map((method: any) => ({
         id: method.id,
-        provider: method.provider_name,
-        name: method.provider_service_name + '.' + method.provider_name,
+        provider: method.provider_display_name,
+        name: method.provider_display_name + " " + method.provider_service_name,
         amount: method.total ?? 0,
         currency: payload.checkout.channel.currencyCode ?? "USD",
         maximum_delivery_days: method.days ?? '1',

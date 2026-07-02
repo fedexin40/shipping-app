@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createQuotation, type address as SkydropxAddress } from "../../../lib/skydropx";
 
+const free_shipping_amount = process.env.free_shipping_amount || 1500
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -12,11 +14,11 @@ export default async function handler(
   }
 
   try {
-    const { address } = req.body;
+    const { checkoutId, amount, address } = req.body;
 
-    if (!address) {
+    if (!address || !checkoutId || !amount) {
       return res.status(400).json({
-        error: "address is required",
+        error: "address or checkoutId or amount are empty but they are mandatory",
       });
     }
 
@@ -68,6 +70,23 @@ export default async function handler(
     const shipping = data.rates
       .filter((rate: any) => rate.success)
       .sort((a: any, b: any) => Number(a.total) - Number(b.total));
+
+    if (!shipping.length) {
+      return res.status(500).json({
+        error: "Unexpected error getting shipping methods",
+      });
+    }
+
+    if (amount >= free_shipping_amount){
+      const freeShipping = shipping.slice(0, 1).map((rate: any) => ({
+        ...rate,
+        total: 0,
+      }));
+      return res.status(200).json({
+        quotation_id: data.id,
+        shipping_methods: freeShipping
+      });
+    }
 
     return res.status(200).json({
       quotation_id: data.id,
